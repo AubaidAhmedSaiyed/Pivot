@@ -1,6 +1,6 @@
-import React from 'react';
-import { 
-  Database, 
+import React, { useEffect, useState } from 'react';
+import {
+  Database,
   Terminal,
   FileCode2,
   Settings2,
@@ -11,10 +11,172 @@ import {
   Search,
   Activity,
   ArrowRight,
-  Code2
+  Code2,
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  ShieldCheck,
 } from 'lucide-react';
 
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+const GOOGLE_REDIRECT_URI = import.meta.env.VITE_GOOGLE_REDIRECT_URI || window.location.origin;
+
+const DEMO_CREDENTIALS = {
+  email: 'admin@pivot.com',
+  password: 'admin123',
+};
+
+function decodeJwtPayload(token) {
+  const parts = token.split('.');
+
+  if (parts.length < 2) {
+    return null;
+  }
+
+  const base64Url = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+  const padded = base64Url + '='.repeat((4 - (base64Url.length % 4)) % 4);
+
+  try {
+    const decoded = atob(padded);
+    const binary = decoded
+      .split('')
+      .map((char) => `%${`00${char.charCodeAt(0).toString(16)}`.slice(-2)}`)
+      .join('');
+    return JSON.parse(decodeURIComponent(binary));
+  } catch (error) {
+    return null;
+  }
+}
+
+function GoogleBrandIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
+      <path fill="#4285F4" d="M21.6 12.23c0-.79-.07-1.54-.2-2.26H12v4.28h5.39a4.61 4.61 0 0 1-2 3.02v2.5h3.24c1.9-1.75 2.97-4.33 2.97-7.54Z" />
+      <path fill="#34A853" d="M12 22c2.7 0 4.96-.9 6.61-2.43l-3.24-2.5c-.9.62-2.04 1-3.37 1-2.59 0-4.79-1.75-5.57-4.09H.92v2.63A10 10 0 0 0 12 22Z" />
+      <path fill="#FBBC05" d="M6.43 18c-.33-.62-.52-1.3-.52-2s.19-1.38.52-2L2.8 11.4A9.97 9.97 0 0 0 .9 12a10 10 0 0 0 9.1 5.48c2.7 0 4.95-.9 6.6-2.43l-3.24-2.5c-.9.62-2.04 1-3.37 1-2.59 0-4.79-1.75-5.57-4.09L2.8 11.42c1.15-3.42 4.28-5.9 8.2-5.9 2.7 0 4.96.9 6.6 2.43l3.24-2.5A9.97 9.97 0 0 0 12 2a10 10 0 0 0-9.1 5.48L6.43 9.5c.78-2.34 2.98-4.09 5.57-4.09 1.33 0 2.47.38 3.37 1l3.24-2.5A10.04 10.04 0 0 0 12 2C7.02 2 2.8 5.68 1.15 10.3L6.43 12c.78-2.34 2.98-4.09 5.57-4.09 1.33 0 2.47.38 3.37 1l3.24-2.5A10.04 10.04 0 0 0 12 2c-4.98 0-9.2 3.68-10.85 8.3L6.43 12Z" opacity="0.12" />
+      <path fill="#EA4335" d="M12 6.91c1.57 0 2.98.54 4.1 1.6l3.04-3.04A9.98 9.98 0 0 0 12 2a10 10 0 0 0-9.1 5.48l3.98 2.72A5.96 5.96 0 0 1 12 6.91Z" />
+    </svg>
+  );
+}
+
 function App() {
+  const [showSignIn, setShowSignIn] = useState(false);
+  const [email, setEmail] = useState('admin@pivot.com');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    if (!showSignIn || !GOOGLE_CLIENT_ID) {
+      return undefined;
+    }
+
+    const renderGoogleButton = () => {
+      const container = document.getElementById('google-signin-btn');
+
+      if (!container || !window.google?.accounts?.id) {
+        return;
+      }
+
+      container.innerHTML = '';
+
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: (response) => {
+          const payload = decodeJwtPayload(response.credential);
+
+          if (!payload) {
+            setError('Google sign-in could not be verified. Please try again.');
+            return;
+          }
+
+          if (payload.email) {
+            setEmail(payload.email);
+          }
+
+          setError('');
+          setIsLoggedIn(true);
+          setShowSignIn(false);
+        },
+        auto_select: false,
+        cancel_on_tap_outside: true,
+        ux_mode: 'popup',
+        redirect_uri: GOOGLE_REDIRECT_URI,
+      });
+
+      window.google.accounts.id.renderButton(container, {
+        theme: 'outline',
+        size: 'large',
+        width: '100%',
+        type: 'standard',
+        text: 'continue_with',
+        shape: 'rectangular',
+        logo_alignment: 'left',
+      });
+    };
+
+    const scriptId = 'google-gsi-script';
+    const existingScript = document.getElementById(scriptId);
+
+    if (window.google?.accounts?.id) {
+      renderGoogleButton();
+      return undefined;
+    }
+
+    if (!existingScript) {
+      const script = document.createElement('script');
+      script.id = scriptId;
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true;
+      script.defer = true;
+      script.onload = renderGoogleButton;
+      document.body.appendChild(script);
+    }
+
+    return undefined;
+  }, [showSignIn]);
+
+  const handleLogin = (event) => {
+    event.preventDefault();
+
+    if (!email.trim() || !password.trim()) {
+      setError('Please enter both email and password.');
+      return;
+    }
+
+    if (
+      email.trim().toLowerCase() === DEMO_CREDENTIALS.email &&
+      password === DEMO_CREDENTIALS.password
+    ) {
+      setError('');
+      setIsLoggedIn(true);
+      setShowSignIn(false);
+      return;
+    }
+
+    setError('Invalid email or password. Try admin@pivot.com / admin123');
+  };
+
+  const handleGoogleClick = () => {
+    if (!GOOGLE_CLIENT_ID) {
+      setError('Add VITE_GOOGLE_CLIENT_ID in your frontend .env file to enable Google login.');
+      return;
+    }
+
+    if (!window.google?.accounts?.id) {
+      setError('Google sign-in is still loading. Please try again in a moment.');
+      return;
+    }
+
+    window.google.accounts.id.prompt((notification) => {
+      if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+        setError('Google sign-in popup was blocked. Please try again.');
+      }
+    });
+  };
+
   return (
     <div className="min-h-screen bg-[#F6F8FA] dark:bg-[#0D1117] text-[#24292F] dark:text-[#C9D1D9] font-sans selection:bg-[#336791] selection:text-white">
       {/* Navigation */}
@@ -32,9 +194,19 @@ function App() {
             <a href="#pricing" className="hover:text-[#24292F] dark:hover:text-white transition-colors">Documentation</a>
           </div>
           <div className="flex items-center gap-6">
-            <a href="#" className="text-base font-semibold text-[#57606A] dark:text-[#8B949E] hover:text-[#24292F] dark:hover:text-white">Sign In</a>
-            <button className="bg-[#2DA44E] text-white px-5 py-2.5 rounded-md text-base font-bold shadow-sm hover:bg-[#2C974B] transition-colors border border-[rgba(27,31,36,0.15)]">
-              Get Started
+            <button
+              type="button"
+              onClick={() => setShowSignIn(true)}
+              className="text-base font-semibold text-[#57606A] dark:text-[#8B949E] hover:text-[#24292F] dark:hover:text-white bg-transparent border-none cursor-pointer"
+            >
+              {isLoggedIn ? 'Dashboard' : 'Sign In'}
+            </button>
+            <button
+              type="button"
+              onClick={() => (isLoggedIn ? setIsLoggedIn(false) : setShowSignIn(true))}
+              className="bg-[#2DA44E] text-white px-5 py-2.5 rounded-md text-base font-bold shadow-sm hover:bg-[#2C974B] transition-colors border border-[rgba(27,31,36,0.15)]"
+            >
+              {isLoggedIn ? 'Log out' : 'Get Started'}
             </button>
           </div>
         </div>
@@ -357,6 +529,130 @@ function App() {
           &copy; 2026 Pivot Engine. All rights reserved.
         </div>
       </footer>
+
+      {showSignIn && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0D1117]/80 backdrop-blur-sm p-4" onClick={() => setShowSignIn(false)}>
+          <div className="w-full max-w-5xl overflow-hidden rounded-2xl border border-[#30363D] bg-[#0D1117] shadow-2xl shadow-black/40" onClick={(event) => event.stopPropagation()}>
+            <div className="grid md:grid-cols-2">
+              <div className="bg-[#111827] p-8 md:p-10 border-r border-[#30363D]">
+                <div className="flex items-center gap-3 mb-8">
+                  <div className="w-10 h-10 bg-[#336791] flex items-center justify-center rounded-md">
+                    <Database className="w-5 h-5 text-white" />
+                  </div>
+                  <span className="font-bold text-2xl tracking-tight text-white">Pivot_</span>
+                </div>
+
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md border border-[#E48E00]/30 bg-[#E48E00]/10 text-[#E48E00] text-xs font-bold uppercase tracking-[0.12em] mb-6">
+                  <ShieldCheck className="w-4 h-4" />
+                  Secure Workspace
+                </div>
+
+                <h2 className="text-4xl font-extrabold tracking-tight text-white leading-none mb-4">
+                  Sign in to <span className="text-[#336791]">access your migration desk</span>
+                </h2>
+
+                <p className="text-[#8B949E] text-lg leading-relaxed mb-8">
+                  Turn database migration into a clean, secure workflow with automated schema checks and review-ready outputs.
+                </p>
+
+                <ul className="space-y-4 text-white">
+                  <li className="flex items-center gap-3"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#336791]/15 text-[#7CC5FF]"><Check className="w-3.5 h-3.5" /></span>Schema validation and type mapping</li>
+                  <li className="flex items-center gap-3"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#336791]/15 text-[#7CC5FF]"><Check className="w-3.5 h-3.5" /></span>Team review and migration tracking</li>
+                  <li className="flex items-center gap-3"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#336791]/15 text-[#7CC5FF]"><Check className="w-3.5 h-3.5" /></span>Deployment-ready PostgreSQL outputs</li>
+                </ul>
+              </div>
+
+              <div className="bg-[#161B22] p-8 md:p-10">
+                <div className="flex items-center justify-between gap-4 mb-6">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#8B949E] mb-2">Welcome back</p>
+                    <h3 className="text-3xl font-extrabold tracking-tight text-white">Sign in</h3>
+                  </div>
+                  <button type="button" onClick={() => setShowSignIn(false)} className="text-sm font-semibold text-[#7CC5FF] bg-transparent border-none cursor-pointer">
+                    Back home
+                  </button>
+                </div>
+
+                {GOOGLE_CLIENT_ID ? (
+                  <div className="mb-5 w-full">
+                    <div id="google-signin-btn" className="w-full" />
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleGoogleClick}
+                    className="w-full mb-5 flex items-center justify-center gap-3 rounded-md border border-[#D0D7DE] bg-white px-4 py-3 text-base font-semibold text-[#24292F] hover:bg-[#F6F8FA] transition-colors"
+                  >
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white">
+                      <GoogleBrandIcon />
+                    </span>
+                    Continue with Google
+                  </button>
+                )}
+
+                <div className="relative my-5 text-center text-[0.68rem] font-bold uppercase tracking-[0.16em] text-[#8B949E]">
+                  <span className="relative z-10 bg-[#161B22] px-3">or continue with email</span>
+                  <span className="absolute left-0 right-0 top-1/2 h-px -translate-y-1/2 bg-[#30363D]"></span>
+                </div>
+
+                <form onSubmit={handleLogin} className="space-y-5">
+                  <label className="block text-sm font-semibold text-white">
+                    <span className="mb-2 block">Email address</span>
+                    <div className="flex items-center gap-3 rounded-md border border-[#30363D] bg-[#0D1117] px-3 py-3 text-[#8B949E] focus-within:border-[#336791] focus-within:ring-2 focus-within:ring-[#336791]/30">
+                      <Mail className="w-4 h-4" />
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(event) => setEmail(event.target.value)}
+                        placeholder="admin@pivot.com"
+                        className="w-full bg-transparent text-white placeholder:text-[#8B949E] outline-none"
+                      />
+                    </div>
+                  </label>
+
+                  <label className="block text-sm font-semibold text-white">
+                    <span className="mb-2 block">Password</span>
+                    <div className="flex items-center gap-3 rounded-md border border-[#30363D] bg-[#0D1117] px-3 py-3 text-[#8B949E] focus-within:border-[#336791] focus-within:ring-2 focus-within:ring-[#336791]/30">
+                      <Lock className="w-4 h-4" />
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        value={password}
+                        onChange={(event) => setPassword(event.target.value)}
+                        placeholder="Enter your password"
+                        className="w-full bg-transparent text-white placeholder:text-[#8B949E] outline-none"
+                      />
+                      <button type="button" onClick={() => setShowPassword((value) => !value)} className="bg-transparent border-none text-[#8B949E] p-0 cursor-pointer">
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </label>
+
+                  <div className="flex items-center justify-between gap-3 text-sm text-[#8B949E]">
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" className="accent-[#336791]" />
+                      Remember me
+                    </label>
+                    <button type="button" className="bg-transparent border-none text-[#7CC5FF] font-semibold cursor-pointer">
+                      Forgot password?
+                    </button>
+                  </div>
+
+                  {error && <div className="rounded-md border border-[#F85149]/30 bg-[#F85149]/10 px-3 py-2 text-sm text-[#FFB3AD]">{error}</div>}
+
+                  <button type="submit" className="flex w-full items-center justify-center gap-3 rounded-md border border-[#2DA44E] bg-[#2DA44E] px-4 py-3 text-base font-bold text-white shadow-sm hover:bg-[#2C974B]">
+                    Sign in
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </form>
+
+                <div className="mt-6 rounded-md border border-[#30363D] bg-[#0D1117] px-4 py-3 text-center text-sm text-[#C9D1D9]">
+                  Demo login: <strong className="text-white">admin@pivot.com</strong> / <strong className="text-white">admin123</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
