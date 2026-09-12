@@ -17,8 +17,11 @@ def parse_schema(sql_script: str) -> dict:
 
     for statement in statements:
 
+        
+
         if not isinstance(statement, exp.Create):
             continue
+
 
         # -----------------------------
         # CREATE TABLE
@@ -37,16 +40,20 @@ def parse_schema(sql_script: str) -> dict:
                 "foreign_keys": [],
                 "constraints": [],
                 "indexes": [],
-                "triggers": []
+                "triggers": [],
+                "unsupported_features": []
             }
 
             # Extract columns
             for column in statement.find_all(exp.ColumnDef):
-                table_data["columns"].append({
-                    "name": column.name,
-                    "data_type": column.kind.sql()
-                })
 
+             column_type = column.kind.sql()
+ 
+             table_data["columns"].append({
+               "name": column.name,
+               "data_type": column_type,
+               "unsigned": column_type.upper() == "UINT"
+            })
             # Extract primary keys
             for column in statement.find_all(exp.ColumnDef):
                 for constraint in column.args.get("constraints", []):
@@ -151,5 +158,98 @@ def parse_schema(sql_script: str) -> dict:
                 if table_data["name"] == table_name:
                     table_data["indexes"].append(index_data)
                     break
+    # -----------------------------
+    # CREATE FULLTEXT INDEX (second pass)
+    # -----------------------------
+    for statement in statements:
 
+        if not isinstance(statement, exp.Command):
+            continue
+
+        expression = statement.args.get("expression", "")
+        command_text = f"{statement.args.get('this', '')}{expression}".strip()
+
+        if not command_text.upper().startswith("CREATE FULLTEXT INDEX"):
+            continue
+
+        # Normalize whitespace
+        command_text = " ".join(command_text.split())
+
+        parts = command_text.split()
+
+        if len(parts) < 6:
+            continue
+
+        index_name = parts[3]
+
+        # Find table name after ON
+        upper_parts = [part.upper() for part in parts]
+
+        if "ON" not in upper_parts:
+            continue
+
+        on_index = upper_parts.index("ON")
+
+        if on_index + 1 >= len(parts):
+            continue
+
+        table_name = parts[on_index + 1].split("(")[0].strip("`")
+
+        for table_data in schema["tables"]:
+
+            if table_data["name"] == table_name:
+
+                table_data["unsupported_features"].append({
+                    "type": "FULLTEXT_INDEX",
+                    "name": index_name.strip("`")
+                })
+
+                break
+    # -----------------------------
+    # CREATE TRIGGER (second pass)
+    # -----------------------------
+    for statement in statements:
+
+        if not isinstance(statement, exp.Command):
+            continue
+
+        expression = statement.args.get("expression", "")
+
+        command_text = f"{statement.args.get('this', '')}{expression}".strip()
+
+        if not command_text.upper().startswith("CREATE TRIGGER"):
+            continue
+
+        # Normalize whitespace
+        command_text = " ".join(command_text.split())
+
+        parts = command_text.split()
+
+        if len(parts) < 6:
+            continue
+
+        trigger_name = parts[2]
+
+        # Find table name after ON
+        upper_parts = [part.upper() for part in parts]
+
+        if "ON" not in upper_parts:
+            continue
+
+        on_index = upper_parts.index("ON")
+
+        if on_index + 1 >= len(parts):
+            continue
+
+        table_name = parts[on_index + 1].strip("`")
+
+        for table_data in schema["tables"]:
+
+            if table_data["name"] == table_name:
+
+                table_data["triggers"].append({
+                    "name": trigger_name
+                })
+
+                break
     return schema
