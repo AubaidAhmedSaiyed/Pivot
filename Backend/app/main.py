@@ -3,6 +3,7 @@ from sqlalchemy import text
 from app.database import engine
 from pydantic import BaseModel
 from services.schema_parser import parse_schema
+from ml.model_predictor import predict_complexity
 
 app = FastAPI(
     title = "Pivot API",
@@ -47,3 +48,15 @@ class SchemaRequest(BaseModel):
 @app.post("/api/schema/analyze")
 def analyze_schema(request: SchemaRequest):
     return parse_schema(request.sql)
+
+@app.post("/api/ml/predict-complexity")
+def predict_schema_complexity(request: SchemaRequest):
+    """
+    Predict migration complexity using the trained ML model.
+    """
+
+    prediction = predict_complexity(request.sql)
+
+    return {
+        "complexity": prediction
+    }
