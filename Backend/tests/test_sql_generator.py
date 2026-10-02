@@ -243,3 +243,25 @@ def test_transformation_log_contains_datatype_mapping():
         price_mapping["rule"]
         == "MYSQL_DECIMAL_TO_POSTGRES_NUMERIC"
     )
+
+def test_current_timestamp_default_is_postgresql_compatible():
+    result = generate(
+        """
+        CREATE TABLE users (
+            id INT PRIMARY KEY,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+        """
+    )
+
+    sql = result["sql"]
+
+    assert (
+        '"created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP'
+        in sql
+    )
+
+    assert (
+        '"created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP()'
+        not in sql
+    )

@@ -17,12 +17,18 @@ def predict_complexity(sql_script: str) -> str :
     features = extract_features(schema)
 
     features_columns = [
-         "table_count",
-        "foreign_key_count",
-        "constraint_count",
-        "trigger_count",
-        "unsupported_feature_count",
-        "unsigned_type_count"
+       "table_count",
+       "column_count",
+       "foreign_key_count",
+       "constraint_count",
+       "index_count",
+       "trigger_count",
+       "unsupported_feature_count",
+       "unsigned_type_count",
+       "auto_increment_count",
+       "default_value_count",
+       "check_constraint_count",
+       "unique_constraint_count"
     ]
 
 

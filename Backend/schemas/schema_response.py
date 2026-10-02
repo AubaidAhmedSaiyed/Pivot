@@ -75,9 +75,14 @@ class AnalysisSummary(BaseModel):
     mapped_column_count: int = 0
     unsupported_column_count: int = 0
 
+class RiskAnalysis(BaseModel):
+    risk_level: str
+    risk_count: int = 0
+    risks: list[dict] = Field(default_factory=list)
 
 class SchemaAnalysisResponse(BaseModel):
     database: str
     summary: AnalysisSummary
     issues: list[AnalysisIssue] = Field(default_factory=list)
+    risk: RiskAnalysis
     tables: list[TableAnalysis]

@@ -144,6 +144,36 @@ def parse_schema(sql_script: str) -> dict:
                     )
                     continue
 
+                index_match = re.match(
+                    r"(?:UNIQUE\s+)?(?:KEY|INDEX)"
+                    r"\s+[`\"]?([A-Za-z_][A-Za-z0-9_]*)[`\"]?"
+                    r"\s*\(([^)]*)\)",
+                    definition,
+                    re.IGNORECASE
+                )
+
+                if index_match:
+                    index_name = index_match.group(1)
+                    index_columns = re.findall(
+                        r"[`\"]?([A-Za-z_][A-Za-z0-9_]*)[`\"]?",
+                        index_match.group(2)
+                    )
+
+                    table_data["indexes"].append({
+                        "name": index_name,
+                        "columns": index_columns,
+                        "unique": bool(
+                            re.match(
+                                r"UNIQUE\s+(?:KEY|INDEX)",
+                                definition,
+                                re.IGNORECASE
+                            )
+                        ),
+                        "primary": False
+                    })
+
+                    continue
+
                 if re.match(
                     r"(?:CONSTRAINT|PRIMARY\s+KEY|FOREIGN\s+KEY|UNIQUE|CHECK|KEY|INDEX)\b",
                     definition,
@@ -204,6 +234,96 @@ def parse_schema(sql_script: str) -> dict:
                 dict.fromkeys(table_data["primary_keys"])
             )
             schema["tables"].append(table_data)
+            continue
+
+        # -----------------------------
+        # ALTER TABLE
+        # -----------------------------
+        if isinstance(
+            statement,
+            exp.Alter
+        ):
+
+            table_name = statement.this.name
+
+            for action in statement.args.get(
+                "actions",
+                []
+            ):
+
+                if not isinstance(
+                    action,
+                    exp.AddConstraint
+                ):
+                    continue
+
+                for constraint in action.expressions:
+
+                    if not isinstance(
+                        constraint,
+                        exp.Constraint
+                    ):
+                        continue
+
+                    for foreign_key in constraint.expressions:
+
+                        if not isinstance(
+                            foreign_key,
+                            exp.ForeignKey
+                        ):
+                            continue
+
+                        local_columns = [
+                            column.name
+                            for column in foreign_key.expressions
+                        ]
+
+                        reference = foreign_key.args.get(
+                            "reference"
+                        )
+
+                        if not reference:
+                            continue
+
+                        reference_schema = reference.this
+
+                        referenced_table = (
+                            reference_schema.this.name
+                        )
+
+                        referenced_columns = [
+                            column.name
+                            for column in reference_schema.expressions
+                        ]
+
+                        schema_table = next(
+                            (
+                                table
+                                for table in schema["tables"]
+                                if table["name"] == table_name
+                            ),
+                            None
+                        )
+
+                        if not schema_table:
+                            continue
+
+                        for (
+                            local_column,
+                            referenced_column
+                        ) in zip(
+                            local_columns,
+                            referenced_columns
+                        ):
+
+                            schema_table[
+                                "foreign_keys"
+                            ].append({
+                                "column": local_column,
+                                "references_table": referenced_table,
+                                "references_column": referenced_column
+                            })
+
             continue
 
         if not isinstance(statement, exp.Create):
@@ -372,6 +492,33 @@ def parse_schema(sql_script: str) -> dict:
             # 2. UNIQUE KEY (column)
             # 3. Composite UNIQUE
             # -----------------------------
+
+            # -----------------------------
+            # Extract table-level INDEXES
+            # -----------------------------
+            for expression in statement.this.expressions:
+
+                if isinstance(
+                    expression,
+                    exp.IndexColumnConstraint
+                ):
+                    index_name = expression.this.name
+
+                    index_columns = [
+                        ordered_column.this.name
+                        for ordered_column in expression.expressions
+                        if ordered_column.this
+                    ]
+
+                    table_data["indexes"].append({
+                        "name": index_name,
+                        "columns": index_columns,
+                        "unique": False,
+                        "primary": False
+                    })
+
+
+
             # -----------------------------
             # Extract table-level constraints
             # -----------------------------
@@ -466,7 +613,6 @@ def parse_schema(sql_script: str) -> dict:
             schema["tables"].append(
                 table_data
             )
-
         # -----------------------------
         # CREATE INDEX
         # -----------------------------

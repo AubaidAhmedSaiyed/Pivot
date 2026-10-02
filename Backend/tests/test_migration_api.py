@@ -276,7 +276,8 @@ def test_generate_migration_sql_on_update_timestamp():
     migration = data["migration"]
     sql = migration["sql"]
 
-    assert 'DEFAULT CURRENT_TIMESTAMP()' in sql
+    assert 'DEFAULT CURRENT_TIMESTAMP' in sql
+    assert 'DEFAULT CURRENT_TIMESTAMP()' not in sql
 
     assert 'CREATE OR REPLACE FUNCTION "users_set_on_update"()' in sql
     assert 'NEW."updated_at" = CURRENT_TIMESTAMP;' in sql

@@ -68,15 +68,14 @@ def predict_schema_complexity(request: SchemaRequest):
 
 @app.post("/api/migration/generate-sql")
 def generate_migration_sql(request: SchemaRequest):
-    """
-    Analyze MySQL schema and generate PostgreSQL migration SQL.
-    """
-
     analyzed_schema = analyze_schema(request.sql)
-
     migration_result = generate_postgresql_sql(analyzed_schema)
+    complexity = predict_complexity(request.sql)
 
     return {
         "analysis": analyzed_schema,
-        "migration": migration_result
+        "migration": migration_result,
+        "ml_prediction": {
+            "complexity": complexity
+        }
     }

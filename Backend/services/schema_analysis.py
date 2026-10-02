@@ -1,6 +1,8 @@
 from services.schema_parser import parse_schema
 from services.type_mapper import map_data_type
 from services.migration_rules import get_migration_rules
+from services.risk_engine import assess_migration_risk
+
 
 
 def _build_summary(
@@ -133,5 +135,7 @@ def analyze_schema(sql_script: str) -> dict:
     )
 
     schema["issues"] = issues
+
+    schema["risk"] = assess_migration_risk(schema)
 
     return schema

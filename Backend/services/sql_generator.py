@@ -49,8 +49,17 @@ def _format_column(column: dict[str, Any]) -> tuple[str, dict[str, Any]]:
       column_sql += " NOT NULL"
 
     default = column.get("default")
+
     if default is not None:
-      column_sql += f" DEFAULT {default}"
+        normalized_default = default
+
+        if normalized_default.upper() in {
+            "CURRENT_TIMESTAMP()",
+            "CURRENT_TIMESTAMP",
+        }:
+            normalized_default = "CURRENT_TIMESTAMP"
+
+        column_sql += f" DEFAULT {normalized_default}"
 
     transformation = {
         "type": "DATATYPE_MAPPING",

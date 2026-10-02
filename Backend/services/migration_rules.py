@@ -85,6 +85,10 @@ def get_migration_rules(source_type: str) -> dict:
             "target_type": "INTEGER",
             "rules": "MYSQL_INTEGER_TO_POSTGRES_INTEGER",
         },
+        "UINT": {
+            "target_type": "INTEGER",
+            "rules": "MYSQL_UNSIGNED_INT_TO_POSTGRES_INTEGER",
+        },
         "BIGINT": {
             "target_type": "BIGINT",
             "rules": "MYSQL_BIGINT_TO_POSTGRES_BIGINT",

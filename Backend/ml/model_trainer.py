@@ -1,22 +1,28 @@
 import joblib
+import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score,classification_report
-
-from ml.dataset_generator import generate_dataset
+from ml.synthetic_dataset import get_combined_dataset
 
 def train_model():
     # Generate dataset 
-    dataset = generate_dataset()
+    dataset = get_combined_dataset()
 
     # ML features
     feature_columns = [
-        "table_count",
-        "foreign_key_count",
-        "constraint_count",
-        "trigger_count",
-        "unsupported_feature_count",
-        "unsigned_type_count"
+    "table_count",
+    "column_count",
+    "foreign_key_count",
+    "constraint_count",
+    "index_count",
+    "trigger_count",
+    "unsupported_feature_count",
+    "unsigned_type_count",
+    "auto_increment_count",
+    "default_value_count",
+    "check_constraint_count",
+    "unique_constraint_count"
     ]
 
     x = dataset[feature_columns]
@@ -40,6 +46,14 @@ def train_model():
 
     # Train
     model.fit(x_train,y_train)
+
+    feature_importance = pd.Series(
+        model.feature_importances_,
+        index=feature_columns
+    ).sort_values(ascending=False)
+
+    print("\nFEATURE IMPORTANCE")
+    print(feature_importance)
 
     # Save trained model
     joblib.dump(model, "ml/complexity_model.pkl")

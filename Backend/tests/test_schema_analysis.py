@@ -85,3 +85,59 @@ def test_named_check_constraint_is_preserved():
     assert len(check_constraints) == 1
     assert check_constraints[0]["name"] == "chk_age"
     assert check_constraints[0]["condition"] == "age >= 18"
+
+def test_risk_engine_detects_foreign_keys_and_triggers():
+    schema = analyze_schema(
+        """
+        CREATE TABLE orders (
+            id INT PRIMARY KEY,
+            user_id INT,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        );
+
+        CREATE TRIGGER before_insert_orders
+        BEFORE INSERT ON orders
+        FOR EACH ROW
+        SET NEW.user_id = 1;
+        """
+    )
+
+    risk = schema["risk"]
+
+    assert risk["risk_level"] == "MEDIUM"
+    assert risk["risk_count"] == 2
+
+    risk_types = {
+        item["type"]
+        for item in risk["risks"]
+    }
+
+    assert "FOREIGN_KEYS" in risk_types
+    assert "TRIGGER" in risk_types
+
+
+def test_risk_engine_detects_unsupported_migration_features():
+    schema = analyze_schema(
+        """
+        CREATE TABLE users (
+            id INT PRIMARY KEY,
+            custom_data INVALID_TYPE
+        );
+
+        CREATE FULLTEXT INDEX idx_users_name
+        ON users(name);
+        """
+    )
+
+    risk = schema["risk"]
+
+    assert risk["risk_level"] == "HIGH"
+    assert risk["risk_count"] == 2
+
+    risk_types = {
+        item["type"]
+        for item in risk["risks"]
+    }
+
+    assert "UNSUPPORTED_DATATYPE" in risk_types
+    assert "UNSUPPORTED_FEATURE" in risk_types
