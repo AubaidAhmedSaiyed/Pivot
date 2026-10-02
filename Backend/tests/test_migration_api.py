@@ -1,7 +1,8 @@
+from unittest.mock import patch
+
 from fastapi.testclient import TestClient
 
 from app.main import app
-
 
 client = TestClient(app)
 
@@ -9,16 +10,14 @@ client = TestClient(app)
 def test_generate_migration_sql():
     response = client.post(
         "/api/migration/generate-sql",
-        json={
-            "sql": """
+        json={"sql": """
                 CREATE TABLE users (
                     id INT PRIMARY KEY,
                     name VARCHAR(100),
                     active TINYINT(1),
                     created_at DATETIME
                 );
-            """
-        }
+            """},
     )
 
     assert response.status_code == 200
@@ -45,18 +44,17 @@ def test_generate_migration_sql():
 
     assert len(migration["transformations"]) == 5
 
+
 def test_schema_analysis_response_includes_column_metadata():
     response = client.post(
         "/api/schema/analyze",
-        json={
-            "sql": """
+        json={"sql": """
             CREATE TABLE users (
                 id INT AUTO_INCREMENT NOT NULL,
                 name VARCHAR(100) DEFAULT 'Guest',
                 updated_at TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
             );
-            """
-        },
+            """},
     )
 
     assert response.status_code == 200
@@ -75,8 +73,7 @@ def test_schema_analysis_response_includes_column_metadata():
 def test_generate_migration_sql_complex_schema():
     response = client.post(
         "/api/migration/generate-sql",
-        json={
-            "sql": """
+        json={"sql": """
                 CREATE TABLE users (
                     id INT PRIMARY KEY,
                     email VARCHAR(255) UNIQUE,
@@ -94,8 +91,7 @@ def test_generate_migration_sql_complex_schema():
 
                 CREATE INDEX idx_orders_quantity
                 ON orders(quantity);
-            """
-        }
+            """},
     )
 
     assert response.status_code == 200
@@ -122,33 +118,27 @@ def test_generate_migration_sql_complex_schema():
     assert 'PRIMARY KEY ("id")' in sql
     assert 'PRIMARY KEY ("user_id", "product_id")' in sql
 
-    assert (
-        'FOREIGN KEY ("user_id") '
-        'REFERENCES "users"("id")'
-    ) in sql
+    assert ('FOREIGN KEY ("user_id") ' 'REFERENCES "users"("id")') in sql
 
     assert 'UNIQUE ("email")' in sql
 
-    assert (
-        'CREATE INDEX "idx_orders_quantity" '
-        'ON "orders"("quantity");'
-    ) in sql
+    assert ('CREATE INDEX "idx_orders_quantity" ' 'ON "orders"("quantity");') in sql
 
     assert '"price" NUMERIC(10, 2)' in sql
 
     assert migration["warnings"] == []
+
+
 def test_generate_migration_sql_unsigned_types():
     response = client.post(
         "/api/migration/generate-sql",
-        json={
-            "sql": """
+        json={"sql": """
                 CREATE TABLE inventory (
                     id INT UNSIGNED PRIMARY KEY,
                     quantity INT UNSIGNED,
                     price DECIMAL(10,2) UNSIGNED
                 );
-            """
-        }
+            """},
     )
 
     assert response.status_code == 200
@@ -172,19 +162,18 @@ def test_generate_migration_sql_unsigned_types():
     assert "UNSIGNED" not in sql
     assert migration["warnings"] == []
 
+
 def test_generate_migration_sql_not_null_and_default():
     response = client.post(
         "/api/migration/generate-sql",
-        json={
-            "sql": """
+        json={"sql": """
                 CREATE TABLE users (
                     id INT NOT NULL,
                     name VARCHAR(100) NOT NULL,
                     status VARCHAR(20) DEFAULT 'active',
                     score INT DEFAULT 0
                 );
-            """
-        }
+            """},
     )
 
     assert response.status_code == 200
@@ -196,22 +185,21 @@ def test_generate_migration_sql_not_null_and_default():
 
     assert '"id" INTEGER NOT NULL' in sql
     assert '"name" VARCHAR(100) NOT NULL' in sql
-    assert '"status" VARCHAR(20) DEFAULT \'active\'' in sql
+    assert "\"status\" VARCHAR(20) DEFAULT 'active'" in sql
     assert '"score" INTEGER DEFAULT 0' in sql
 
     assert migration["warnings"] == []
 
+
 def test_generate_migration_sql_auto_increment():
     response = client.post(
         "/api/migration/generate-sql",
-        json={
-            "sql": """
+        json={"sql": """
                 CREATE TABLE users (
                     id INT AUTO_INCREMENT PRIMARY KEY,
                     name VARCHAR(100)
                 );
-            """
-        }
+            """},
     )
 
     assert response.status_code == 200
@@ -226,17 +214,16 @@ def test_generate_migration_sql_auto_increment():
     assert "AUTO_INCREMENT" not in sql
     assert migration["warnings"] == []
 
+
 def test_generate_migration_sql_auto_increment_not_null():
     response = client.post(
         "/api/migration/generate-sql",
-        json={
-            "sql": """
+        json={"sql": """
                 CREATE TABLE users (
                     id INT AUTO_INCREMENT NOT NULL PRIMARY KEY,
                     name VARCHAR(100) NOT NULL
                 );
-            """
-        }
+            """},
     )
 
     assert response.status_code == 200
@@ -246,27 +233,23 @@ def test_generate_migration_sql_auto_increment_not_null():
     migration = data["migration"]
     sql = migration["sql"]
 
-    assert (
-        '"id" INTEGER GENERATED BY DEFAULT AS IDENTITY NOT NULL'
-        in sql
-    )
+    assert '"id" INTEGER GENERATED BY DEFAULT AS IDENTITY NOT NULL' in sql
     assert '"name" VARCHAR(100) NOT NULL' in sql
     assert "AUTO_INCREMENT" not in sql
     assert migration["warnings"] == []
 
+
 def test_generate_migration_sql_on_update_timestamp():
     response = client.post(
         "/api/migration/generate-sql",
-        json={
-            "sql": """
+        json={"sql": """
                 CREATE TABLE users (
                     id INT PRIMARY KEY,
                     updated_at TIMESTAMP
                         DEFAULT CURRENT_TIMESTAMP
                         ON UPDATE CURRENT_TIMESTAMP
                 );
-            """
-        }
+            """},
     )
 
     assert response.status_code == 200
@@ -276,8 +259,8 @@ def test_generate_migration_sql_on_update_timestamp():
     migration = data["migration"]
     sql = migration["sql"]
 
-    assert 'DEFAULT CURRENT_TIMESTAMP' in sql
-    assert 'DEFAULT CURRENT_TIMESTAMP()' not in sql
+    assert "DEFAULT CURRENT_TIMESTAMP" in sql
+    assert "DEFAULT CURRENT_TIMESTAMP()" not in sql
 
     assert 'CREATE OR REPLACE FUNCTION "users_set_on_update"()' in sql
     assert 'NEW."updated_at" = CURRENT_TIMESTAMP;' in sql
@@ -288,18 +271,17 @@ def test_generate_migration_sql_on_update_timestamp():
     assert "ON UPDATE" not in sql
     assert migration["warnings"] == []
 
+
 def test_generate_migration_sql_unsigned_variants():
     response = client.post(
         "/api/migration/generate-sql",
-        json={
-            "sql": """
+        json={"sql": """
                 CREATE TABLE inventory (
                     id INT UNSIGNED,
                     quantity BIGINT UNSIGNED,
                     price DECIMAL(10,2) UNSIGNED
                 );
-            """
-        }
+            """},
     )
 
     assert response.status_code == 200
@@ -316,18 +298,17 @@ def test_generate_migration_sql_unsigned_variants():
     assert "UNSIGNED" not in sql
     assert migration["warnings"] == []
 
+
 def test_generate_migration_sql_unsigned_warnings():
     response = client.post(
         "/api/migration/generate-sql",
-        json={
-            "sql": """
+        json={"sql": """
                 CREATE TABLE inventory (
                     id INT UNSIGNED,
                     quantity BIGINT UNSIGNED,
                     price DECIMAL(10,2) UNSIGNED
                 );
-            """
-        }
+            """},
     )
 
     assert response.status_code == 200
@@ -337,11 +318,7 @@ def test_generate_migration_sql_unsigned_warnings():
     issues = data["analysis"]["issues"]
     migration = data["migration"]
 
-    unsigned_issues = [
-        issue
-        for issue in issues
-        if issue["type"] == "UNSIGNED_TYPE"
-    ]
+    unsigned_issues = [issue for issue in issues if issue["type"] == "UNSIGNED_TYPE"]
 
     assert len(unsigned_issues) == 3
 
@@ -351,10 +328,7 @@ def test_generate_migration_sql_unsigned_warnings():
         "price",
     ]
 
-    assert all(
-        issue["severity"] == "warning"
-        for issue in unsigned_issues
-    )
+    assert all(issue["severity"] == "warning" for issue in unsigned_issues)
 
     assert '"id" INTEGER' in migration["sql"]
     assert '"quantity" BIGINT' in migration["sql"]
@@ -362,18 +336,17 @@ def test_generate_migration_sql_unsigned_warnings():
 
     assert migration["warnings"] == []
 
+
 def test_generate_migration_sql_check_constraint():
     response = client.post(
         "/api/migration/generate-sql",
-        json={
-            "sql": """
+        json={"sql": """
             CREATE TABLE users (
                 id INT PRIMARY KEY,
                 age INT,
                 CONSTRAINT chk_age CHECK (age >= 18)
             );
-            """
-        },
+            """},
     )
 
     assert response.status_code == 200
@@ -384,17 +357,16 @@ def test_generate_migration_sql_check_constraint():
     assert 'CONSTRAINT "chk_age" CHECK (age >= 18)' in sql
     assert data["migration"]["warnings"] == []
 
+
 def test_schema_analysis_response_includes_check_constraint_name():
     response = client.post(
         "/api/schema/analyze",
-        json={
-            "sql": """
+        json={"sql": """
                 CREATE TABLE users (
                     age INT,
                     CONSTRAINT chk_age CHECK (age >= 18)
                 );
-            """
-        }
+            """},
     )
 
     assert response.status_code == 200
@@ -403,20 +375,18 @@ def test_schema_analysis_response_includes_check_constraint_name():
     constraints = data["tables"][0]["constraints"]
 
     check_constraints = [
-        constraint
-        for constraint in constraints
-        if constraint["type"] == "CHECK"
+        constraint for constraint in constraints if constraint["type"] == "CHECK"
     ]
 
     assert len(check_constraints) == 1
     assert check_constraints[0]["name"] == "chk_age"
     assert check_constraints[0]["condition"] == "age >= 18"
 
+
 def test_generate_migration_sql_reports_unsupported_features():
     response = client.post(
         "/api/migration/generate-sql",
-        json={
-            "sql": """
+        json={"sql": """
                 CREATE TABLE users (
                     id INT PRIMARY KEY,
                     name VARCHAR(100)
@@ -426,8 +396,7 @@ def test_generate_migration_sql_reports_unsupported_features():
                 BEFORE INSERT ON users
                 FOR EACH ROW
                 SET NEW.name = UPPER(NEW.name);
-            """
-        }
+            """},
     )
 
     assert response.status_code == 200
@@ -436,26 +405,23 @@ def test_generate_migration_sql_reports_unsupported_features():
     warnings = data["migration"]["warnings"]
 
     trigger_warnings = [
-        warning
-        for warning in warnings
-        if warning["type"] == "TRIGGER_NOT_GENERATED"
+        warning for warning in warnings if warning["type"] == "TRIGGER_NOT_GENERATED"
     ]
 
     assert len(trigger_warnings) == 1
     assert trigger_warnings[0]["table"] == "users"
     assert trigger_warnings[0]["trigger"] == "trg_users"
 
+
 def test_generate_migration_sql_reports_unsupported_datatype():
     response = client.post(
         "/api/migration/generate-sql",
-        json={
-            "sql": """
+        json={"sql": """
                 CREATE TABLE users (
                     id INT PRIMARY KEY,
                     custom_data INVALID_TYPE
                 );
-            """
-        }
+            """},
     )
 
     assert response.status_code == 200
@@ -477,3 +443,91 @@ def test_generate_migration_sql_reports_unsupported_datatype():
 
     assert '"id" INTEGER' in sql
     assert "custom_data" not in sql
+
+
+def test_migration_review_endpoint_returns_review():
+    mock_ai_review = {
+        "summary": "Mock AI migration review.",
+        "issues": [
+            {
+                "type": "unsigned_range_change",
+                "severity": "medium",
+                "explanation": "Mocked AI explanation.",
+                "recommendation": "Review the unsigned range.",
+            }
+        ],
+        "recommendations": ["Review the unsigned column before deployment."],
+    }
+
+    with patch(
+        "services.ai_migration_reviewer._generate_ai_review",
+        return_value=mock_ai_review,
+    ):
+        response = client.post(
+            "/api/migration/review",
+            json={"sql": """
+                CREATE TABLE users (
+                    id INT PRIMARY KEY,
+                    age INT UNSIGNED,
+                    name VARCHAR(100)
+                );
+                """},
+        )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert "analysis" in data
+    assert "migration" in data
+    assert "review" in data
+
+    assert data["analysis"]["summary"]["unsigned_type_count"] == 1
+    assert data["analysis"]["risk"]["risk_level"] == "MEDIUM"
+
+    review = data["review"]
+
+    assert review["overall_assessment"] == "MEDIUM"
+    assert review["manual_review_required"] is True
+
+    assert any(issue["type"] == "UNSIGNED_TYPE" for issue in review["issues"])
+
+    assert review["ai_review"]["summary"] == "Mock AI migration review."
+
+
+def test_migration_review_endpoint_ai_fallback():
+    with patch(
+        "services.ai_migration_reviewer._generate_ai_review",
+        return_value={
+            "summary": "AI review was unavailable. Deterministic migration review is still available.",
+            "issues": [],
+            "recommendations": [
+                "Review the deterministic migration analysis and generated PostgreSQL SQL manually."
+            ],
+            "error": "AI review service is currently unavailable.",
+        },
+    ):
+        response = client.post(
+            "/api/migration/review",
+            json={"sql": """
+                CREATE TABLE users (
+                    id INT PRIMARY KEY,
+                    age INT UNSIGNED
+                );
+                """},
+        )
+
+    assert response.status_code == 200
+
+    data = response.json()
+    review = data["review"]
+
+    assert review["overall_assessment"] == "MEDIUM"
+    assert review["manual_review_required"] is True
+
+    assert (
+        review["ai_review"]["summary"]
+        == "AI review was unavailable. Deterministic migration review is still available."
+    )
+
+    assert review["ai_review"]["issues"] == []

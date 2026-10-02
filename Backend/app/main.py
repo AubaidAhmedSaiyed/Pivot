@@ -6,6 +6,7 @@ from services.schema_analysis import analyze_schema
 from ml.model_predictor import predict_complexity
 from schemas.schema_response import SchemaAnalysisResponse
 from services.sql_generator import generate_postgresql_sql
+from services.ai_migration_reviewer import review_migration
 
 app = FastAPI(
     title = "Pivot API",
@@ -78,4 +79,20 @@ def generate_migration_sql(request: SchemaRequest):
         "ml_prediction": {
             "complexity": complexity
         }
+    }
+
+@app.post("/api/migration/review")
+def review_migration_endpoint(request: SchemaRequest):
+    analyzed_schema = analyze_schema(request.sql)
+    migration_result = generate_postgresql_sql(analyzed_schema)
+
+    review = review_migration(
+        analyzed_schema,
+        migration_result
+    )
+
+    return {
+        "analysis": analyzed_schema,
+        "migration": migration_result,
+        "review": review
     }
