@@ -46,6 +46,8 @@ def map_data_type(mysql_type):
         "INT": "INTEGER",
         "INTEGER": "INTEGER",
         "BIGINT": "BIGINT",
+        "UINT": "INTEGER",
+        "UBIGINT": "BIGINT",
     }
 
     if data_type in integer_mapping:
@@ -77,7 +79,7 @@ def map_data_type(mysql_type):
     # ---------------------------------------------------------
     # Fixed precision numbers
     # ---------------------------------------------------------
-    if data_type in ("DECIMAL", "NUMERIC"):
+    if data_type in ("DECIMAL", "NUMERIC" , "UDECIMAL"):
         return f"NUMERIC{parameters}"
 
     # ---------------------------------------------------------
@@ -117,6 +119,9 @@ def map_data_type(mysql_type):
 
     if data_type == "TIMESTAMP":
         return "TIMESTAMP"
+
+    if data_type == "TIMESTAMPTZ":
+      return "TIMESTAMPTZ"
 
     if data_type == "TIME":
         return "TIME"
