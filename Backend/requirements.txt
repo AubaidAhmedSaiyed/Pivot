@@ -4,8 +4,10 @@ sqlalchemy
 psycopg2-binary
 python-dotenv
 python-multipart
-passlib[bcrypt]
+bcrypt
 python-jose[cryptography]
+email-validator
+alembic
 sqlglot
 pytest
 httpx

@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from sqlalchemy import text
 from app.database import engine
 from pydantic import BaseModel
+
 from services.schema_analysis import analyze_schema
 from ml.model_predictor import predict_complexity
 from schemas.schema_response import SchemaAnalysisResponse
@@ -11,11 +12,17 @@ from services.schema_diff import diff_schemas
 from schemas.schema_response import SchemaDiffResponse
 from services.schema_parser import parse_schema
 
+from routers.auth import router as auth_router
+from routers.projects import router as projects_router
+
 app = FastAPI(
     title = "Pivot API",
     description = "AI-Powered Database Schema Migration",
     version = "1.0.0"
 )
+
+app.include_router(auth_router)
+app.include_router(projects_router)
 
 @app.get("/")
 def root():
