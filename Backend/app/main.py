@@ -7,6 +7,9 @@ from ml.model_predictor import predict_complexity
 from schemas.schema_response import SchemaAnalysisResponse
 from services.sql_generator import generate_postgresql_sql
 from services.ai_migration_reviewer import review_migration
+from services.schema_diff import diff_schemas
+from schemas.schema_response import SchemaDiffResponse
+from services.schema_parser import parse_schema
 
 app = FastAPI(
     title = "Pivot API",
@@ -47,6 +50,9 @@ def database_health():
 class SchemaRequest(BaseModel):
     sql: str
 
+class SchemaDiffRequest(BaseModel):
+    source_sql: str
+    target_sql: str
 
 @app.post(
     "/api/schema/analyze",
@@ -54,6 +60,26 @@ class SchemaRequest(BaseModel):
 )
 def analyze_schema_endpoint(request: SchemaRequest):
     return analyze_schema(request.sql)
+
+@app.post(
+    "/api/schema/diff",
+    response_model=SchemaDiffResponse
+)
+def schema_diff_endpoint(request: SchemaDiffRequest):
+    source_schema = parse_schema(
+        request.source_sql,
+        dialect="mysql"
+    )
+
+    target_schema = parse_schema(
+        request.target_sql,
+        dialect="postgres"
+    )
+
+    return diff_schemas(
+        source_schema,
+        target_schema
+    )
 
 @app.post("/api/ml/predict-complexity")
 def predict_schema_complexity(request: SchemaRequest):

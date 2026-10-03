@@ -2,6 +2,65 @@ from unittest.mock import patch
 
 from services.schema_analysis import analyze_schema
 from services.ai_migration_reviewer import review_migration
+from services.schema_parser import parse_schema
+
+
+def test_parser_supports_mysql_dialect():
+    schema = parse_schema(
+        """
+        CREATE TABLE users (
+            id INT PRIMARY KEY,
+            name VARCHAR(100)
+        );
+        """,
+        dialect="mysql",
+    )
+
+    assert schema["database"] == "mysql"
+    assert len(schema["tables"]) == 1
+    assert schema["tables"][0]["name"] == "users"
+    assert len(schema["tables"][0]["columns"]) == 2
+
+
+def test_parser_supports_postgresql_dialect():
+    schema = parse_schema(
+        """
+        CREATE TABLE users (
+            id INTEGER PRIMARY KEY,
+            name VARCHAR(100)
+        );
+        """,
+        dialect="postgres",
+    )
+
+    assert schema["database"] == "postgres"
+    assert len(schema["tables"]) == 1
+    assert schema["tables"][0]["name"] == "users"
+    assert len(schema["tables"][0]["columns"]) == 2
+
+
+def test_parser_supports_postgresql_schema_features():
+    schema = parse_schema(
+        """
+        CREATE TABLE users (
+            id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+            email VARCHAR(255) NOT NULL UNIQUE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE INDEX idx_users_email ON users(email);
+        """,
+        dialect="postgres",
+    )
+
+    assert schema["database"] == "postgres"
+    assert len(schema["tables"]) == 1
+
+    table = schema["tables"][0]
+
+    assert table["name"] == "users"
+    assert len(table["columns"]) == 3
+    assert len(table["indexes"]) >= 1
 
 
 def test_summary_counts_only_unsupported_columns():
@@ -189,7 +248,6 @@ def test_ai_migration_reviewer_returns_structured_review(mock_ai_review):
 
 
 @patch("services.ai_migration_reviewer._generate_ai_review")
-
 def test_ai_migration_reviewer_detects_migration_warnings(mock_ai_review):
     mock_ai_review.return_value = {
         "summary": "Mock AI migration review.",

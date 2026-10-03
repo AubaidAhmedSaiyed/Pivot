@@ -86,3 +86,38 @@ class SchemaAnalysisResponse(BaseModel):
     issues: list[AnalysisIssue] = Field(default_factory=list)
     risk: RiskAnalysis
     tables: list[TableAnalysis]
+
+class SchemaDiffSummary(BaseModel):
+
+    added_tables: int = 0
+    removed_tables: int = 0
+
+    added_columns: int = 0
+    removed_columns: int = 0
+    changed_columns: int = 0
+
+    changed_primary_keys: int = 0
+    added_primary_keys: int = 0
+    removed_primary_keys: int = 0
+
+    changed_foreign_keys: int = 0
+    added_foreign_keys: int = 0
+    removed_foreign_keys: int = 0
+
+    changed_unique_constraints: int = 0
+    added_unique_constraints: int = 0
+    removed_unique_constraints: int = 0
+
+    changed_checks: int = 0
+    added_checks: int = 0
+    removed_checks: int = 0
+
+    changed_indexes: int = 0
+    added_indexes: int = 0
+    removed_indexes: int = 0
+
+
+class SchemaDiffResponse(BaseModel):
+
+    summary: SchemaDiffSummary
+    changes: list[dict] = Field(default_factory=list)

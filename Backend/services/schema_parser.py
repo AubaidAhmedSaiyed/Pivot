@@ -3,7 +3,10 @@ import sqlglot
 from sqlglot import exp
 
 
-def parse_schema(sql_script: str) -> dict:
+def parse_schema(
+    sql_script: str,
+    dialect: str = "mysql"
+) -> dict:
     """
     Parse a MySQL schema and convert it into
     PIVOT's canonical schema representation.
@@ -11,12 +14,12 @@ def parse_schema(sql_script: str) -> dict:
 
     statements = sqlglot.parse(
         sql_script,
-        read="mysql",
+        read=dialect,
         error_level="ignore"
     )
 
     schema = {
-        "database": "mysql",
+        "database": dialect,
         "tables": []
     }
 

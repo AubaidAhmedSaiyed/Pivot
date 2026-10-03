@@ -531,3 +531,50 @@ def test_migration_review_endpoint_ai_fallback():
     )
 
     assert review["ai_review"]["issues"] == []
+
+def test_schema_diff_endpoint():
+    source_sql = """
+        CREATE TABLE users (
+            id INT PRIMARY KEY,
+            email VARCHAR(255)
+        );
+    """
+
+    target_sql = """
+        CREATE TABLE users (
+            id INTEGER PRIMARY KEY,
+            email VARCHAR(255),
+            name VARCHAR(100)
+        );
+
+        CREATE INDEX idx_users_email
+        ON users(email);
+    """
+
+    response = client.post(
+        "/api/schema/diff",
+        json={
+            "source_sql": source_sql,
+            "target_sql": target_sql,
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert "summary" in data
+    assert "changes" in data
+
+    assert data["summary"]["added_columns"] == 1
+    assert data["summary"]["removed_columns"] == 0
+    assert data["summary"]["added_indexes"] == 1
+    assert data["summary"]["removed_indexes"] == 0
+
+    change_types = {
+        change["type"]
+        for change in data["changes"]
+    }
+
+    assert "ADDED_COLUMN" in change_types
+    assert "INDEX_ADDED" in change_types
