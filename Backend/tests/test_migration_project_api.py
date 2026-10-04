@@ -295,3 +295,86 @@ def test_download_migration_report(client):
         report_response.headers["content-disposition"]
         == f'attachment; filename="pivot-migration-{migration_id}.pdf"'
     )
+
+def test_create_migration_rejects_empty_source_sql(client):
+    register_response = client.post(
+        "/api/auth/register",
+        json={
+            "email": "migration-empty-sql-test@pivot.dev",
+            "password": "test_password_123",
+        },
+    )
+    assert register_response.status_code == 201
+
+    login_response = client.post(
+        "/api/auth/login",
+        json={
+            "email": "migration-empty-sql-test@pivot.dev",
+            "password": "test_password_123",
+        },
+    )
+    assert login_response.status_code == 200
+
+    token = login_response.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    project_response = client.post(
+        "/api/projects",
+        headers=headers,
+        json={
+            "name": "Empty SQL Validation Test",
+        },
+    )
+    assert project_response.status_code == 201
+
+    project_id = project_response.json()["id"]
+
+    response = client.post(
+        f"/api/projects/{project_id}/migrations",
+        headers=headers,
+        json={"source_sql": ""},
+    )
+
+    assert response.status_code == 422
+
+
+def test_create_migration_rejects_whitespace_source_sql(client):
+    register_response = client.post(
+        "/api/auth/register",
+        json={
+            "email": "migration-whitespace-sql-test@pivot.dev",
+            "password": "test_password_123",
+        },
+    )
+    assert register_response.status_code == 201
+
+    login_response = client.post(
+        "/api/auth/login",
+        json={
+            "email": "migration-whitespace-sql-test@pivot.dev",
+            "password": "test_password_123",
+        },
+    )
+    assert login_response.status_code == 200
+
+    token = login_response.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    project_response = client.post(
+        "/api/projects",
+        headers=headers,
+        json={
+            "name": "Whitespace SQL Validation Test",
+        },
+    )
+    assert project_response.status_code == 201
+
+    project_id = project_response.json()["id"]
+
+    response = client.post(
+        f"/api/projects/{project_id}/migrations",
+        headers=headers,
+        json={"source_sql": "   \n\t  "},
+    )
+
+    assert response.status_code == 422

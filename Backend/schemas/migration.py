@@ -1,9 +1,19 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from schemas.schema_response import SchemaAnalysisResponse
 
 
 class MigrationCreateRequest(BaseModel):
-    source_sql: str
+    source_sql: str = Field(min_length=1)
+
+    @field_validator("source_sql")
+    @classmethod
+    def validate_source_sql(cls, value: str) -> str:
+        value = value.strip()
+
+        if not value:
+            raise ValueError("Source SQL cannot be empty.")
+
+        return value
 
 
 class MLPredictionResponse(BaseModel):
