@@ -87,3 +87,26 @@ def test_login_wrong_password(client):
 
     assert login_response.status_code == 401
     assert login_response.json()["detail"] == "Invalid email or password."
+
+def test_register_rejects_short_password(client):
+    response = client.post(
+        "/api/auth/register",
+        json={
+            "email": "short-password@pivot.dev",
+            "password": "short",
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_login_rejects_short_password(client):
+    response = client.post(
+        "/api/auth/login",
+        json={
+            "email": "short-login@pivot.dev",
+            "password": "short",
+        },
+    )
+
+    assert response.status_code == 422
