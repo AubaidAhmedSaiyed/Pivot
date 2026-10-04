@@ -218,3 +218,66 @@ def test_list_and_get_project_migrations(client):
     assert detail["migration_result"] is not None
     assert detail["ml_prediction"] is not None
     assert detail["ai_review"] is not None
+
+def test_download_migration_report(client):
+    register_response = client.post(
+        "/api/auth/register",
+        json={
+            "email": "migration-report-test@pivot.dev",
+            "password": "test_password_123",
+        },
+    )
+    assert register_response.status_code == 201
+
+    login_response = client.post(
+        "/api/auth/login",
+        json={
+            "email": "migration-report-test@pivot.dev",
+            "password": "test_password_123",
+        },
+    )
+    assert login_response.status_code == 200
+
+    token = login_response.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    project_response = client.post(
+        "/api/projects",
+        headers=headers,
+        json={
+            "name": "Migration Report Test Project",
+            "description": "PDF report API test",
+        },
+    )
+    assert project_response.status_code == 201
+
+    project_id = project_response.json()["id"]
+
+    migration_response = client.post(
+        f"/api/projects/{project_id}/migrations",
+        headers=headers,
+        json={
+            "source_sql": """
+                CREATE TABLE users (
+                    id INT PRIMARY KEY,
+                    name VARCHAR(100)
+                );
+            """
+        },
+    )
+    assert migration_response.status_code == 201
+
+    migration_id = migration_response.json()["id"]
+
+    report_response = client.get(
+        f"/api/projects/{project_id}/migrations/{migration_id}/report",
+        headers=headers,
+    )
+
+    assert report_response.status_code == 200
+    assert report_response.headers["content-type"] == "application/pdf"
+    assert report_response.content.startswith(b"%PDF")
+    assert (
+        report_response.headers["content-disposition"]
+        == f'attachment; filename="pivot-migration-{migration_id}.pdf"'
+    )

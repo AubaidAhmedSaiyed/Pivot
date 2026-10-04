@@ -17,6 +17,8 @@ from ml.model_predictor import predict_complexity
 from services.schema_analysis import analyze_schema
 from services.sql_generator import generate_postgresql_sql
 from services.ai_migration_reviewer import review_migration
+from fastapi.responses import Response
+from services.report_service import generate_migration_report
 
 router = APIRouter(
     prefix="/api/projects",
@@ -153,3 +155,48 @@ def get_migration_endpoint(
         )
 
     return migration_run
+
+@router.get(
+    "/{project_id}/migrations/{migration_id}/report",
+)
+def download_migration_report(
+    project_id: int,
+    migration_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    project = get_user_project(
+        db=db,
+        project_id=project_id,
+        user_id=current_user.id,
+    )
+
+    if project is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found.",
+        )
+
+    migration_run = get_project_migration_run(
+        db=db,
+        migration_run_id=migration_id,
+        project_id=project.id,
+    )
+
+    if migration_run is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Migration run not found.",
+        )
+
+    pdf_bytes = generate_migration_report(migration_run)
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="pivot-migration-{migration_id}.pdf"'
+            )
+        },
+    )
