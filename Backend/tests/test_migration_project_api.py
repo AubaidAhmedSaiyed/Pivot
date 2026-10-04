@@ -138,6 +138,20 @@ def test_migration_failure_is_persisted(client, monkeypatch, db_session):
     assert migration_run.status == "FAILED"
     assert migration_run.error_message == "Intentional migration failure"
 
+    detail_response = client.get(
+        f"/api/projects/{project_id}/migrations/{migration_run.id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert detail_response.status_code == 200
+
+    detail = detail_response.json()
+
+    assert detail["status"] == "FAILED"
+    assert "error_message" not in detail
+
+
+
 def test_list_and_get_project_migrations(client):
     register_response = client.post(
         "/api/auth/register",
@@ -261,7 +275,7 @@ def test_download_migration_report(client):
                 CREATE TABLE users (
                     id INT PRIMARY KEY,
                     name VARCHAR(100)
-                );
+                );      
             """
         },
     )
