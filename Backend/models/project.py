@@ -53,3 +53,8 @@ class Project(Base):
     user: Mapped["User"] = relationship(
         back_populates="projects",
     )
+
+    migration_runs: Mapped[list["MigrationRun"]] = relationship(
+        back_populates="project",
+        cascade="all, delete-orphan",
+    )

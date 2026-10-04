@@ -7,6 +7,7 @@ from sqlalchemy import pool
 from app.database import Base, DATABASE_URL
 from models.user import User  # noqa: F401
 from models.project import Project  # noqa: F401
+from models.migration_run import MigrationRun  # noqa: F401
 
 
 # Alembic Config object

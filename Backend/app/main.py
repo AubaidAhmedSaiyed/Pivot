@@ -14,6 +14,7 @@ from services.schema_parser import parse_schema
 
 from routers.auth import router as auth_router
 from routers.projects import router as projects_router
+from routers.migrations import router as migrations_router
 
 app = FastAPI(
     title = "Pivot API",
@@ -23,6 +24,7 @@ app = FastAPI(
 
 app.include_router(auth_router)
 app.include_router(projects_router)
+app.include_router(migrations_router)
 
 @app.get("/")
 def root():
