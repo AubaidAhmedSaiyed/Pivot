@@ -1,5 +1,13 @@
 # React + Vite
 
+## Pivot API
+
+The frontend uses `http://127.0.0.1:8000` by default. Set `VITE_API_BASE_URL` in
+the frontend environment to point at another backend URL. The backend permits
+the standard Vite development and preview origins; set `FRONTEND_ORIGINS` to a
+comma-separated origin list when running the frontend from a different host or
+port.
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:

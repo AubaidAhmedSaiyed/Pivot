@@ -1,4 +1,3 @@
-import React from 'react';
 import { CheckCircle2, Clock, AlertTriangle, XCircle } from 'lucide-react';
 
 export default function StatusBadge({ status = 'Completed', size = 'md' }) {
@@ -35,7 +34,12 @@ export default function StatusBadge({ status = 'Completed', size = 'md' }) {
     },
   };
 
-  const config = configs[status] || configs.Completed;
+  const config = configs[status] || {
+    bg: 'bg-slate-500/10 text-slate-300 border-slate-600/30',
+    dot: 'bg-slate-400',
+    icon: Clock,
+    label: String(status).replaceAll('_', ' '),
+  };
   const Icon = config.icon;
   const isSmall = size === 'sm';
 

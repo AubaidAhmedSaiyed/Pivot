@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
@@ -9,13 +9,14 @@ import {
   User,
   Menu,
   X,
-  Sparkles,
 } from 'lucide-react';
 import Button from './Button';
+import { useAuth } from '../../contexts/useAuth';
 
 export default function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { isAuthenticated, user, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navLinks = [
@@ -82,13 +83,27 @@ export default function Navbar() {
 
         {/* Right: Actions */}
         <div className="hidden sm:flex items-center gap-3">
-          <Link
-            to="/login"
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800 transition-all no-underline"
-          >
-            <User className="w-3.5 h-3.5 text-slate-400" />
-            <span>Sign In</span>
-          </Link>
+          {isAuthenticated ? (
+            <>
+              <span className="max-w-40 truncate text-xs text-slate-400">{user?.email}</span>
+              <button
+                type="button"
+                onClick={() => { logout(); navigate('/'); }}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800 transition-all"
+              >
+                <User className="w-3.5 h-3.5 text-slate-400" />
+                <span>Sign Out</span>
+              </button>
+            </>
+          ) : (
+            <Link
+              to="/login"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-900 border border-transparent hover:border-slate-800 transition-all no-underline"
+            >
+              <User className="w-3.5 h-3.5 text-slate-400" />
+              <span>Sign In</span>
+            </Link>
+          )}
 
           <Button
             variant="amber"
@@ -139,13 +154,27 @@ export default function Navbar() {
             );
           })}
           <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between">
-            <Link
-              to="/login"
-              onClick={() => setMobileMenuOpen(false)}
-              className="text-sm font-medium text-slate-300 hover:text-white no-underline"
-            >
-              Sign In to Workspace
-            </Link>
+            {isAuthenticated ? (
+              <button
+                type="button"
+                onClick={() => {
+                  logout();
+                  setMobileMenuOpen(false);
+                  navigate('/');
+                }}
+                className="text-sm font-medium text-slate-300 hover:text-white"
+              >
+                Sign Out {user?.email ? `(${user.email})` : ''}
+              </button>
+            ) : (
+              <Link
+                to="/login"
+                onClick={() => setMobileMenuOpen(false)}
+                className="text-sm font-medium text-slate-300 hover:text-white no-underline"
+              >
+                Sign In to Workspace
+              </Link>
+            )}
           </div>
         </div>
       )}

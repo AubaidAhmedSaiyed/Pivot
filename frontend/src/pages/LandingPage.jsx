@@ -1,38 +1,24 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Database,
   ArrowRight,
-  ShieldCheck,
   Code2,
-  Table,
-  CheckCircle2,
-  AlertTriangle,
-  AlertOctagon,
   Copy,
   Check,
-  Sparkles,
   Terminal,
   Activity,
-  Layers,
-  Flame,
-  Search,
   ExternalLink,
   Bot,
-  Sliders,
-  FileDown,
-  UserCheck,
   TrendingDown,
   XCircle,
   UploadCloud,
   Cpu,
   FileDiff,
-  FileText,
 } from 'lucide-react';
 import SchemaBackground from '../components/common/SchemaBackground';
 import Button from '../components/common/Button';
 import RiskBadge from '../components/common/RiskBadge';
-import StatusBadge from '../components/common/StatusBadge';
 
 export default function LandingPage() {
   const navigate = useNavigate();

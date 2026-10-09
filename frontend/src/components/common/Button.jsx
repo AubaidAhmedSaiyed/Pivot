@@ -1,5 +1,3 @@
-import React from 'react';
-
 export default function Button({
   children,
   variant = 'primary', // 'primary' | 'amber' | 'secondary' | 'ghost' | 'outline' | 'danger'
