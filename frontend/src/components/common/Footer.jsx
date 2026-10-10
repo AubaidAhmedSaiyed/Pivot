@@ -1,4 +1,3 @@
-import React from 'react';
 import { Terminal, Shield, Cpu, GitCommit } from 'lucide-react';
 import { Link } from 'react-router-dom';
 

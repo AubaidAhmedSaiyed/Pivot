@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   UploadCloud,
@@ -8,9 +8,7 @@ import {
   Sparkles,
   Terminal,
   Database,
-  Cpu,
   AlertCircle,
-  FileText,
   RotateCcw,
   Play,
   Check,
@@ -19,16 +17,18 @@ import SchemaBackground from '../components/common/SchemaBackground';
 import Button from '../components/common/Button';
 import CardContainer from '../components/common/CardContainer';
 import { SAMPLE_SCHEMAS } from '../data/mockData';
+import { useMigration } from '../contexts/useMigration';
 
 export default function UploadPage() {
   const navigate = useNavigate();
+  const fileInputRef = useRef(null);
+  const { migration, loading: isProcessing, step, error, runMigration, clearMigration } = useMigration();
   const [activeTab, setActiveTab] = useState('upload'); // 'upload' | 'paste'
   const [selectedSample, setSelectedSample] = useState('ecommerce');
   const [pastedSql, setPastedSql] = useState(SAMPLE_SCHEMAS.ecommerce.sql);
   const [fileName, setFileName] = useState('ecommerce_storefront.sql');
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [step, setStep] = useState(0); // 0: idle, 1: uploading, 2: parsing AST, 3: converting types, 4: done
   const [logs, setLogs] = useState([]);
+  const [fileError, setFileError] = useState('');
 
   // Stepper definition aligned with system workflow
   const steps = [
@@ -42,47 +42,45 @@ export default function UploadPage() {
     setSelectedSample(key);
     setPastedSql(SAMPLE_SCHEMAS[key].sql);
     setFileName(`${key}_schema.sql`);
+    setFileError('');
   };
 
-  const startConversion = () => {
-    setIsProcessing(true);
-    setStep(1);
-    setLogs(['[00:00.012] Ingesting SQL schema buffer (3.4 KB, UTF-8)...']);
+  const handleFile = async (file) => {
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith('.sql')) {
+      setFileError('Please select a .sql file.');
+      return;
+    }
+    try {
+      setPastedSql(await file.text());
+      setFileName(file.name);
+      setSelectedSample('');
+      setFileError('');
+      setActiveTab('paste');
+    } catch (readError) {
+      setFileError(`Could not read the selected file: ${readError.message}`);
+    }
+  };
 
-    setTimeout(() => {
-      setStep(2);
-      setLogs((prev) => [
-        ...prev,
-        '[00:00.320] Parsing MySQL 8.0 DDL via SQLGlot into canonical schema tree...',
-        '[00:00.540] Extracted 4 canonical table definitions, 18 columns, 6 foreign keys.',
+  const startConversion = async () => {
+    setFileError('');
+    setLogs(['Submitting schema for backend analysis...']);
+    try {
+      const result = await runMigration(pastedSql);
+      setLogs([
+        `Schema analysis complete: ${result.analysis?.summary?.table_count ?? 0} tables, ${result.analysis?.summary?.column_count ?? 0} columns.`,
+        `Complexity prediction: ${result.prediction?.complexity ?? 'Not provided'}.`,
+        `Generated PostgreSQL SQL (${result.migration.sql.length} characters).`,
+        `Review and schema diff complete: ${result.diff?.changes?.length ?? 0} changes reported.`,
       ]);
-    }, 900);
-
-    setTimeout(() => {
-      setStep(3);
-      setLogs((prev) => [
-        ...prev,
-        '[00:01.110] Rule-based engine converting types: TINYINT(1) -> BOOLEAN, DATETIME -> TIMESTAMPTZ.',
-        '[00:01.420] Detected unsupported MySQL clause ON UPDATE CURRENT_TIMESTAMP on `users.updated_at`.',
-        '[00:01.780] AI Assistant flagged unsupported clause and generated PL/pgSQL BEFORE UPDATE trigger.',
-        '[00:02.010] Upgraded AUTO_INCREMENT keys to SQL:2008 GENERATED ALWAYS AS IDENTITY.',
-      ]);
-    }, 1900);
-
-    setTimeout(() => {
-      setStep(4);
-      setLogs((prev) => [
-        ...prev,
-        '[00:02.450] ML model prediction: Complexity 28/100 • Estimated Effort ~2.5 hrs • Success Probability 94%.',
-        '[00:02.620] PostgreSQL 16 schema generated. Diff viewer & downloadable SQL/PDF ready.',
-      ]);
-      setIsProcessing(false);
-    }, 3000);
+    } catch (requestError) {
+      setFileError(requestError.message);
+      setLogs([]);
+    }
   };
 
   const resetAll = () => {
-    setStep(0);
-    setIsProcessing(false);
+    clearMigration();
     setLogs([]);
   };
 
@@ -108,11 +106,9 @@ export default function UploadPage() {
         {/* Stepper Progress Bar */}
         <div className="mb-10 p-5 rounded-2xl bg-slate-900/80 border border-slate-800 backdrop-blur-xl shadow-xl">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {steps.map((s, idx) => {
+            {steps.map((s) => {
               const isDone = step > s.id || step === 4;
               const isCurrent = step === s.id && step !== 4;
-              const isPending = step < s.id;
-
               return (
                 <div key={s.id} className="flex flex-col gap-1.5 relative">
                   <div className="flex items-center gap-2">
@@ -206,21 +202,45 @@ export default function UploadPage() {
               {activeTab === 'upload' ? (
                 /* Drag and Drop Zone */
                 <div
-                  onClick={startConversion}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => fileInputRef.current?.click()}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      fileInputRef.current?.click();
+                    }
+                  }}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    handleFile(event.dataTransfer.files?.[0]);
+                  }}
                   className="border-2 border-dashed border-slate-700 hover:border-amber-500/60 rounded-xl p-12 text-center transition-all bg-slate-950/50 hover:bg-slate-900/50 cursor-pointer group"
                 >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".sql,text/plain"
+                    className="hidden"
+                    onChange={(event) => {
+                      const [file] = event.target.files || [];
+                      event.target.value = '';
+                      handleFile(file);
+                    }}
+                  />
                   <div className="w-16 h-16 rounded-2xl bg-indigo-600/10 border border-indigo-500/20 flex items-center justify-center mx-auto mb-4 text-indigo-400 group-hover:scale-110 group-hover:text-amber-400 group-hover:border-amber-500/30 transition-all shadow-[0_0_30px_rgba(99,102,241,0.15)]">
                     <UploadCloud className="w-8 h-8" />
                   </div>
                   <h3 className="font-display text-xl font-bold text-white mb-2">
-                    Click to load <span className="text-amber-300 font-mono text-lg">{fileName}</span> or drop files here
+                    Click to choose a <span className="text-amber-300 font-mono text-lg">.sql file</span> or drop it here
                   </h3>
                   <p className="text-sm text-slate-400 max-w-md mx-auto mb-6">
                     Supports standard MySQL dumps from mysqldump, phpMyAdmin, Navicat, and Prisma schema exports.
                   </p>
                   <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-mono font-bold shadow-md">
-                    <Play className="w-3.5 h-3.5 fill-current" />
-                    <span>Run AST Parse & Convert</span>
+                    <UploadCloud className="w-3.5 h-3.5" />
+                    <span>Choose SQL File</span>
                   </div>
                 </div>
               ) : (
@@ -233,7 +253,11 @@ export default function UploadPage() {
                   <textarea
                     rows={12}
                     value={pastedSql}
-                    onChange={(e) => setPastedSql(e.target.value)}
+                    onChange={(e) => {
+                      setPastedSql(e.target.value);
+                      setSelectedSample('');
+                      setFileError('');
+                    }}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 font-mono text-xs text-slate-200 focus:outline-none focus:border-indigo-500 leading-relaxed"
                   />
                   <div className="flex justify-end gap-3">
@@ -242,10 +266,30 @@ export default function UploadPage() {
                       size="md"
                       icon={Play}
                       onClick={startConversion}
+                      disabled={isProcessing}
                     >
-                      Process & Translate Schema
+                      {isProcessing ? 'Processing...' : 'Analyze & Convert Schema'}
                     </Button>
                   </div>
+                </div>
+              )}
+              {(fileError || error) && (
+                <p role="alert" className="mt-4 flex items-start gap-2 text-sm text-rose-300">
+                  <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                  <span>{fileError || error}</span>
+                </p>
+              )}
+              {activeTab === 'upload' && (
+                <div className="flex justify-end mt-4">
+                  <Button
+                    variant="amber"
+                    size="md"
+                    icon={Play}
+                    onClick={startConversion}
+                    disabled={isProcessing}
+                  >
+                    {isProcessing ? 'Processing...' : 'Analyze Selected Schema'}
+                  </Button>
                 </div>
               )}
             </CardContainer>
@@ -261,12 +305,12 @@ export default function UploadPage() {
                   </div>
                   <div>
                     <h3 className="text-sm font-bold text-white">AST Translation Pipeline Stream</h3>
-                    <p className="text-xs text-slate-500 font-mono">Worker: ast-node-04 • Session ID: #8839-x</p>
+                    <p className="text-xs text-slate-500 font-mono">{fileName} • Backend migration APIs</p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {step === 4 ? (
+                  {migration ? (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-xs font-mono font-bold">
                       <CheckCircle2 className="w-3.5 h-3.5" />
                       Conversion Complete
@@ -282,6 +326,13 @@ export default function UploadPage() {
 
               {/* Log Window */}
               <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 font-mono text-xs space-y-2 max-h-72 overflow-y-auto">
+                {isProcessing && (
+                  <div className="leading-relaxed text-amber-300">
+                    {step === 1 && 'Analyzing schema and predicting migration complexity...'}
+                    {step === 2 && 'Generating PostgreSQL migration SQL...'}
+                    {step === 3 && 'Building migration review and schema diff...'}
+                  </div>
+                )}
                 {logs.map((line, idx) => (
                   <div
                     key={idx}
@@ -299,7 +350,7 @@ export default function UploadPage() {
               </div>
 
               {/* Action Buttons when Done */}
-              {step === 4 && (
+              {migration && (
                 <div className="mt-6 pt-6 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
                   <button
                     type="button"

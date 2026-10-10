@@ -1,4 +1,3 @@
-import React from 'react';
 import { ShieldCheck, ShieldAlert, AlertOctagon } from 'lucide-react';
 
 export default function RiskBadge({ score = 20, tier, showScore = true, size = 'md' }) {
