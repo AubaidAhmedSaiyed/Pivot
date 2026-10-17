@@ -42,10 +42,16 @@ export default function ReviewPage() {
 
   const tables = migration?.analysis?.tables || [];
   const selectedTable = tables.find((table) => table.name === activeTable) || tables[0] || null;
-  const issues = [
-    ...(migration?.review?.issues || []),
-    ...(migration?.review?.ai_review?.issues || []),
-  ];
+  const issues = migration?.review?.issues || [];
+  const aiReview = migration?.review?.ai_review;
+  const hasAiFallback = aiReview?.status === 'fallback'
+    || aiReview?.source === 'deterministic'
+    || Boolean(aiReview?.error);
+  const aiReviewStatus = hasAiFallback
+    ? 'Deterministic fallback'
+    : aiReview?.source === 'ai' || aiReview?.summary
+      ? 'AI-generated'
+      : 'Unavailable';
   const risks = migration?.analysis?.risk;
   const riskLevel = risks?.risk_level || 'LOW';
   const riskTier = riskLevel.charAt(0) + riskLevel.slice(1).toLowerCase();
@@ -143,12 +149,58 @@ export default function ReviewPage() {
               <h2 className="font-display text-xl font-bold text-white">Migration review</h2>
             </div>
             <p className="text-sm text-slate-300 leading-relaxed">
-              {migration.review?.summary || migration.review?.ai_review?.summary || 'No review summary was returned.'}
+              {migration.review?.summary || 'No deterministic review summary was returned.'}
             </p>
             {migration.review?.recommendations?.length > 0 && (
               <ul className="mt-4 space-y-2 text-sm text-slate-400 list-disc pl-5">
                 {migration.review.recommendations.map((item, index) => <li key={`${index}-${item}`}>{item}</li>)}
               </ul>
+            )}
+          </CardContainer>
+          <CardContainer className="p-6 bg-slate-900/80">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-indigo-400" />
+                <h2 className="font-display text-xl font-bold text-white">AI migration assistant</h2>
+              </div>
+              <span
+                className={`text-xs font-mono uppercase ${
+                  aiReviewStatus === 'AI-generated' ? 'text-emerald-300' : 'text-amber-300'
+                }`}
+              >
+                {aiReviewStatus}
+              </span>
+            </div>
+            {(hasAiFallback || aiReviewStatus === 'Unavailable') && (
+              <p role="status" className="text-sm text-amber-200 mb-3">
+                {aiReview?.error || 'AI review is unavailable; deterministic findings remain available.'}
+              </p>
+            )}
+            {aiReview?.summary && (
+              <p className="text-sm text-slate-300 leading-relaxed">{aiReview.summary}</p>
+            )}
+            {aiReview?.recommendations?.length > 0 && (
+              <ul className="mt-4 space-y-2 text-sm text-slate-400 list-disc pl-5">
+                {aiReview.recommendations.map((item, index) => <li key={`${index}-${item}`}>{item}</li>)}
+              </ul>
+            )}
+            {aiReview?.issues?.length > 0 && (
+              <div className="mt-4 space-y-3">
+                {aiReview.issues.map((issue, index) => (
+                  <div key={`${issue.type || 'issue'}-${index}`} className="p-3 rounded-lg bg-slate-950/70 border border-slate-800">
+                    <div className="text-xs font-mono uppercase text-indigo-300">
+                      {titleCase(issue.severity || issue.type)}
+                    </div>
+                    <p className="text-sm text-slate-300 mt-1">{issue.explanation || 'No explanation was provided.'}</p>
+                    {issue.recommendation && (
+                      <p className="text-xs text-slate-400 mt-2">{issue.recommendation}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            {!aiReview?.summary && !hasAiFallback && (
+              <p className="text-sm text-slate-400">No AI review was returned.</p>
             )}
           </CardContainer>
           <CardContainer className="p-6 bg-slate-900/80">
@@ -216,7 +268,7 @@ export default function ReviewPage() {
 
         <section className="my-10">
           <div className="mb-5">
-            <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-400">AI migration assistant</span>
+            <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-400">Deterministic review</span>
             <h2 className="font-display text-2xl sm:text-3xl font-bold text-white">Review findings</h2>
           </div>
           {issues.length === 0 ? (

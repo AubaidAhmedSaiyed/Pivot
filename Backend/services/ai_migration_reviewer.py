@@ -1,21 +1,37 @@
 import json
+import logging
 import os
 from typing import Any
 
 from dotenv import load_dotenv
-from openai import OpenAI
+from openai import OpenAI, OpenAIError
 
 load_dotenv()
 
+logger = logging.getLogger(__name__)
 AI_MODEL = os.getenv("OPENAI_MODEL", "gpt-6-luna")
+
+
+def _deterministic_ai_fallback() -> dict[str, Any]:
+    return {
+        "summary": (
+            "AI review is unavailable. Deterministic migration findings "
+            "are shown instead."
+        ),
+        "issues": [],
+        "recommendations": [
+            "Review the deterministic analysis and generated PostgreSQL SQL manually."
+        ],
+        "error": "AI review could not be generated; deterministic findings remain available.",
+        "source": "deterministic",
+        "status": "fallback",
+    }
 
 
 def _generate_ai_review(
     analysis: dict[str, Any],
     migration: dict[str, Any],
 ) -> dict[str, Any]:
-    client = OpenAI()
-
     prompt = f"""
 You are an AI migration review assistant for Pivot.
 
@@ -58,22 +74,46 @@ Generated PostgreSQL migration:
 """
 
     try:
+        client = OpenAI()
         response = client.responses.create(
             model=AI_MODEL,
             input=prompt,
         )
+        review = json.loads(response.output_text)
 
-        return json.loads(response.output_text)
+        if (
+            not isinstance(review, dict)
+            or not isinstance(review.get("summary"), str)
+            or not isinstance(review.get("issues", []), list)
+            or not isinstance(review.get("recommendations", []), list)
+            or not all(
+                isinstance(issue, dict)
+                and all(
+                    isinstance(issue.get(field), str)
+                    for field in (
+                        "type",
+                        "severity",
+                        "explanation",
+                        "recommendation",
+                    )
+                )
+                for issue in review.get("issues", [])
+            )
+            or not all(
+                isinstance(recommendation, str)
+                for recommendation in review.get("recommendations", [])
+            )
+        ):
+            logger.warning("AI migration review returned an invalid response shape")
+            return _deterministic_ai_fallback()
 
-    except Exception as exc:
-        return {
-            "summary": "AI review was unavailable. Deterministic migration review is still available.",
-            "issues": [],
-            "recommendations": [
-                "Review the deterministic migration analysis and generated PostgreSQL SQL manually."
-            ],
-            "error": "AI review service is currently unavailable.",
-        }
+        review.setdefault("issues", [])
+        review.setdefault("recommendations", [])
+        review.update({"source": "ai", "status": "complete"})
+        return review
+    except (OpenAIError, json.JSONDecodeError, TypeError) as exc:
+        logger.warning("AI migration review failed (%s)", type(exc).__name__)
+        return _deterministic_ai_fallback()
 
 
 def review_migration(

@@ -49,6 +49,8 @@ class AIReviewResponse(BaseModel):
     issues: list[AIReviewIssueResponse] = Field(default_factory=list)
     recommendations: list[str] = Field(default_factory=list)
     error: str | None = None
+    source: str | None = None
+    status: str | None = None
 
 
 class MigrationDecisionResponse(BaseModel):

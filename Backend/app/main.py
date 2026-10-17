@@ -1,13 +1,13 @@
 import os
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from app.database import engine
 from pydantic import BaseModel
 
 from services.schema_analysis import analyze_schema
-from ml.model_predictor import predict_complexity
+from ml.model_predictor import ComplexityModelError, predict_complexity
 from schemas.schema_response import SchemaAnalysisResponse
 from services.sql_generator import generate_postgresql_sql
 from services.ai_migration_reviewer import review_migration
@@ -65,7 +65,7 @@ def database_health():
             connection.execute(text("SELECT 1"))
 
         return{
-            "Status" : "healthy",
+            "status" : "healthy",
             "database" : "connected"
         }
 
@@ -116,7 +116,13 @@ def predict_schema_complexity(request: SchemaRequest):
     Predict migration complexity using the trained ML model.
     """
 
-    prediction = predict_complexity(request.sql)
+    try:
+        prediction = predict_complexity(request.sql)
+    except ComplexityModelError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Complexity prediction is currently unavailable.",
+        ) from exc
 
     return {
         "complexity": prediction
@@ -126,7 +132,13 @@ def predict_schema_complexity(request: SchemaRequest):
 def generate_migration_sql(request: SchemaRequest):
     analyzed_schema = analyze_schema(request.sql)
     migration_result = generate_postgresql_sql(analyzed_schema)
-    complexity = predict_complexity(request.sql)
+    try:
+        complexity = predict_complexity(request.sql)
+    except ComplexityModelError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Complexity prediction is currently unavailable.",
+        ) from exc
 
     return {
         "analysis": analyzed_schema,

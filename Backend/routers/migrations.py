@@ -13,7 +13,7 @@ from services.migration_run_service import (
     get_project_migration_runs,
     get_project_migration_run,
 )
-from ml.model_predictor import predict_complexity
+from ml.model_predictor import ComplexityModelError, predict_complexity
 from services.schema_analysis import analyze_schema
 from services.sql_generator import generate_postgresql_sql
 from services.ai_migration_reviewer import review_migration
@@ -81,6 +81,17 @@ def create_migration_endpoint(
         )
 
         return completed_run
+
+    except ComplexityModelError as exc:
+        fail_migration_run(
+            db=db,
+            migration_run=migration_run,
+            error_message="Complexity prediction model is unavailable.",
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Complexity prediction is currently unavailable.",
+        ) from exc
 
     except Exception as exc:
         failed_run = fail_migration_run(

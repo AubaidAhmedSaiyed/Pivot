@@ -3,6 +3,10 @@ uvicorn[standard]
 sqlalchemy
 psycopg2-binary
 python-dotenv
+openai
+joblib
+pandas
+scikit-learn
 python-multipart
 bcrypt
 python-jose[cryptography]

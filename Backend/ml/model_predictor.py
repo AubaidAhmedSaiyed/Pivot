@@ -1,9 +1,18 @@
+import logging
+from pathlib import Path
+
 import joblib
 import pandas as pd
 from services.schema_parser import parse_schema
 from ml.feature_extractor import extract_features
 
-MODEL_PATH = "ml/complexity_model.pkl"
+logger = logging.getLogger(__name__)
+MODEL_PATH = Path(__file__).resolve().with_name("complexity_model.pkl")
+
+
+class ComplexityModelError(RuntimeError):
+    """Raised when the trained complexity model cannot be loaded."""
+
 
 def predict_complexity(sql_script: str) -> str :
     """
@@ -39,7 +48,16 @@ def predict_complexity(sql_script: str) -> str :
 )
 
     # Load trained model
-    model = joblib.load(MODEL_PATH)
+    try:
+        model = joblib.load(MODEL_PATH)
+    except Exception as exc:
+        logger.error(
+            "Could not load complexity model artifact (%s)",
+            type(exc).__name__,
+        )
+        raise ComplexityModelError(
+            "The complexity prediction model is unavailable."
+        ) from exc
 
     # Predict
     prediction = model.predict(model_input)[0]
